@@ -521,7 +521,7 @@ const CLASSES={
 };
 
 const WIN_SCORE=30;
-const MATCH_START_DELAY=20;
+const MATCH_START_DELAY=5;
 
 // ============ GAME STATE ============
 const state={
@@ -1931,7 +1931,7 @@ function startMatchCountdown(){
   document.getElementById('chat-messages').innerHTML='';
   chatState.messages=[];
   document.getElementById('chat-hint').classList.remove('hidden');
-  addChatMessage('20秒后开局，按 Enter 聊天','system');
+  addChatMessage('5秒后开局，按 Enter 聊天','system');
 
   cdEl.textContent=count;
   cdEl.style.color='#ff00ff';
