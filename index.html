@@ -533,7 +533,8 @@ const state={
   hp:100,maxHp:100,armor:30,speed:1.0,
   bots:[],bullets:[],particles:[],rainDrops:[],
   matchStartTime:0,gameOver:false,
-  vy:0,groundY:1.7
+  vy:0,groundY:1.7,
+  mouseHeld:false
 };
 
 // ============ THREE.JS SETUP ============
@@ -1127,6 +1128,7 @@ function throwGrenade(type){
     pos:origin.clone().add(dir.clone().multiplyScalar(0.5)),
     vel:dir.clone().multiplyScalar(speed).add(new THREE.Vector3(0,5,0)),
     type:type,life:3,elapsed:0,
+    throwerTeam:state.team,
     model:null
   };
   const geo=new THREE.SphereGeometry(0.15,8,6);
@@ -1156,15 +1158,18 @@ function detonateGrenade(g){
     spawnParticle(g.pos,0xff4400,0.5,0.4);
     spawnParticle(g.pos,0xffaa00,0.4,0.5);
     playTone(40,'sawtooth',0.2,0.3);
-    // Damage bots in radius
+    // Damage bots in radius (skip friendlies)
     state.bots.forEach(function(bot){
       if(!bot.alive)return;
+      if(bot.team===g.throwerTeam)return;
       var d=bot.pos.distanceTo(g.pos);
       if(d<8){if(!state._lastBotHit)state._lastBotHit={};state._lastBotHit[bot.team]=Date.now();bot.takeDamage(Math.floor(100*(1-d/8)),g.pos);}
     });
-    // Damage player
-    var pd=camera.position.distanceTo(g.pos);
-    if(pd<8&&state.alive){damagePlayer(Math.floor(100*(1-pd/8)));}
+    // Damage player only if enemy grenade
+    if(g.throwerTeam!==state.team){
+      var pd=camera.position.distanceTo(g.pos);
+      if(pd<8&&state.alive){damagePlayer(Math.floor(100*(1-pd/8)));}
+    }
   }else if(g.type==='flash'){
     spawnParticle(g.pos,0xffffff,0.4,0.2);
     playTone(1000,'square',0.05,0.2);
@@ -1429,7 +1434,7 @@ function updateBots(dt){
             damagePlayer(w.damage*(0.6+Math.random()*0.4));
           }else{
             // Damage other bot
-            var otherBot=state.bots.find(function(b){return b.pos.distanceTo(bestPos)<1.5;});
+            var otherBot=state.bots.find(function(b){return b.pos.distanceTo(bestPos)<1.5&&b.team!==bot.team;});
             if(otherBot&&otherBot.takeDamage){
               otherBot.takeDamage(w.damage*(0.5+Math.random()*0.5),bot.pos);
             }
@@ -1499,7 +1504,7 @@ function killPlayer(killer='ENEMY'){
 function respawnPlayer(){
   const cls=CLASSES[state.classIndex];
   state.hp=cls.hp;state.maxHp=cls.hp;state.armor=cls.armor;state.speed=cls.speed;
-  state.alive=true;state.reloading=false;state.vy=0;
+  state.alive=true;state.reloading=false;state.vy=0;state.mouseHeld=false;
   const sp=spawnPoints[Math.floor(Math.random()*spawnPoints.length)];
   camera.position.set(sp.x,state.groundY,sp.z);
 }
@@ -1690,7 +1695,13 @@ renderer.domElement.addEventListener('click',()=>{
   if(!state.paused&&state.alive&&state.gameStarted)renderer.domElement.requestPointerLock();
 });
 document.addEventListener('mousedown',e=>{
-  if(e.button===0&&document.pointerLockElement===renderer.domElement&&!state.paused&&state.alive&&!state.reloading&&state.gameStarted)shoot();
+  if(e.button===0){
+    state.mouseHeld=true;
+    if(document.pointerLockElement===renderer.domElement&&!state.paused&&state.alive&&!state.reloading&&state.gameStarted)shoot();
+  }
+});
+document.addEventListener('mouseup',e=>{
+  if(e.button===0)state.mouseHeld=false;
 });
 document.getElementById('blocker').addEventListener('click',()=>{
   initAudio();renderer.domElement.requestPointerLock();
@@ -1727,7 +1738,7 @@ function startReload(){
   const w=WEAPONS[wk];
   if(state.weaponIdx>=3||w.melee)return;
   if(state.reloading)return;
-  state.reloading=true;state.reloadStart=performance.now();
+  state.reloading=true;state.reloadStart=performance.now();state.mouseHeld=false;
   sfxReload();
   setTimeout(()=>{
     state.reloading=false;
@@ -1849,6 +1860,7 @@ function shoot(){
 
     state.bots.forEach(bot=>{
       if(!bot.alive)return;
+      if(bot.team===state.team)return;
       const botCenter=bot.pos.clone();
       const bRay=new THREE.Raycaster(origin,dir,0,w.range);
       const bHits=bRay.intersectObjects(coverObjects,true);
@@ -2089,6 +2101,13 @@ function animate(){
       state.vy=0;
     }
 
+    // Auto-fire for automatic weapons
+    if(state.mouseHeld&&document.pointerLockElement===renderer.domElement&&!state.paused&&state.alive&&!state.reloading&&state.gameStarted){
+      const wk=state.playerLoadout[state.weaponIdx];
+      const w=WEAPONS[wk];
+      if(w&&w.auto)shoot();
+    }
+
     // Weapon bob
     if(moveDir.length()>0){
       weaponGroup.position.x=0.15+Math.sin(state.gameTime*8)*0.006;
@@ -2109,7 +2128,7 @@ function animate(){
 function initGame(){
   generateMap();
   state.kills=0;state.deaths=0;state.teamScore=[0,0];
-  state.team=0;state.gameOver=false;state.vy=0;
+  state.team=0;state.gameOver=false;state.vy=0;state.mouseHeld=false;
   state.bots.forEach(b=>scene.remove(b.model));state.bots.length=0;
   state.particles.forEach(p=>scene.remove(p));state.particles.length=0;
 
