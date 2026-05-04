@@ -20,3 +20,4 @@
 - 地图主题天空系统：移除全局统一背景色，新增_setMapAtmosphere统一接口为每张地图设置独立天空色+环境光+半球光+阳光+雾气；废弃仓库暖色工业金色黄昏/千叶神社紫红暮光/数据核心深蓝数码雾/虚空甲板暗紫星空
 - 修复敌人无法攻击Bug：根因是updateHUD在装备槽(frag/flash/smoke)时访问WEAPONS[wk]._mag导致undefined崩溃，每帧渲染中断致使游戏画面冻结；重构updateHUD将装备显示提前并添加空值守卫
 
+2026-05-04 14:15 - 发布到GitHub: https://github.com/ssli525-ai/cyber-fps
