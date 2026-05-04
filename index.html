@@ -715,11 +715,11 @@ function generateMap_warehouse() {
     const colGeo = new THREE.CylinderGeometry(0.4, 0.6, 16, 8);
     const colMat = new THREE.MeshStandardMaterial({ color: 0x886622, roughness: 0.4, metalness: 0.8 });
     const col = new THREE.Mesh(colGeo, colMat); col.position.set(crx, 8, crz); col.castShadow = true;
-    scene.add(col); mapObjects.push(col);
+    col.userData = { isBuilding: true }; scene.add(col); mapObjects.push(col); coverObjects.push(col);
     const armGeo = new THREE.BoxGeometry(1, 0.5, 12);
     const armMat = new THREE.MeshStandardMaterial({ color: 0x886622, roughness: 0.4, metalness: 0.8 });
     const arm = new THREE.Mesh(armGeo, armMat); arm.position.set(crx, 15, crz); arm.castShadow = true;
-    scene.add(arm); mapObjects.push(arm);
+    arm.userData = { isBuilding: true }; scene.add(arm); mapObjects.push(arm); coverObjects.push(arm);
   });
   // Office shed center
   _addBld(0, -10, 10, 6, 12, 0x3a3528, 0x44ff44);
@@ -772,7 +772,7 @@ function generateMap_shrine() {
     const roof = new THREE.Mesh(rGeo, rMat);
     roof.position.set(0, (t + 1) * 4 - 0.2, 3);
     roof.castShadow = true;
-    scene.add(roof); mapObjects.push(roof);
+    roof.userData = { isBuilding: true }; scene.add(roof); mapObjects.push(roof); coverObjects.push(roof);
   }
   // Torii gates at 4 directions
   [[0, -48], [0, 48], [-48, 3], [48, 3]].forEach(([tx, tz]) => {
@@ -780,12 +780,12 @@ function generateMap_shrine() {
     const pW = 1.5, pH = 10, pD = 1.5;
     const lGeo = new THREE.BoxGeometry(pW, pH, pD);
     const lMat = new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.5, metalness: 0.3, emissive: 0x220000, emissiveIntensity: 0.3 });
-    const p1 = new THREE.Mesh(lGeo, lMat); p1.position.set(tx - 5, 5, tz); p1.castShadow = true; scene.add(p1); mapObjects.push(p1);
-    const p2 = new THREE.Mesh(lGeo, lMat); p2.position.set(tx + 5, 5, tz); p2.castShadow = true; scene.add(p2); mapObjects.push(p2);
+    const p1 = new THREE.Mesh(lGeo, lMat); p1.position.set(tx - 5, 5, tz); p1.castShadow = true; p1.userData = { isBuilding: true }; scene.add(p1); mapObjects.push(p1); coverObjects.push(p1);
+    const p2 = new THREE.Mesh(lGeo, lMat); p2.position.set(tx + 5, 5, tz); p2.castShadow = true; p2.userData = { isBuilding: true }; scene.add(p2); mapObjects.push(p2); coverObjects.push(p2);
     const bGeo = new THREE.BoxGeometry(11, 1.2, 2);
     const bMat = new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.3, metalness: 0.5, emissive: 0x220000, emissiveIntensity: 0.4 });
-    const topBar = new THREE.Mesh(bGeo, bMat); topBar.position.set(tx, 9.5, tz); topBar.castShadow = true; scene.add(topBar); mapObjects.push(topBar);
-    const topBar2 = new THREE.Mesh(bGeo.clone(), bMat); topBar2.position.set(tx, 7.5, tz); topBar2.castShadow = true; scene.add(topBar2); mapObjects.push(topBar2);
+    const topBar = new THREE.Mesh(bGeo, bMat); topBar.position.set(tx, 9.5, tz); topBar.castShadow = true; topBar.userData = { isBuilding: true }; scene.add(topBar); mapObjects.push(topBar); coverObjects.push(topBar);
+    const topBar2 = new THREE.Mesh(bGeo.clone(), bMat); topBar2.position.set(tx, 7.5, tz); topBar2.castShadow = true; topBar2.userData = { isBuilding: true }; scene.add(topBar2); mapObjects.push(topBar2); coverObjects.push(topBar2);
   });
   // Shrine buildings at corners
   _addBld(-45, -45, 12, 7, 14, 0x3a2a1a, 0xddaa00);
@@ -800,7 +800,7 @@ function generateMap_shrine() {
       const bMat = new THREE.MeshStandardMaterial({ color: 0x338833, roughness: 0.6 });
       const bamboo = new THREE.Mesh(bGeo, bMat);
       bamboo.position.set(bx, 2.5 + Math.random(), bz); bamboo.castShadow = true;
-      scene.add(bamboo); mapObjects.push(bamboo);
+      bamboo.userData = { isBuilding: true }; scene.add(bamboo); mapObjects.push(bamboo); coverObjects.push(bamboo);
     }
   }
   // Cherry blossom trees
@@ -808,11 +808,11 @@ function generateMap_shrine() {
     const trGeo = new THREE.CylinderGeometry(0.3, 0.5, 4, 6);
     const trMat = new THREE.MeshStandardMaterial({ color: 0x5a3a2a, roughness: 0.7 });
     const trunk = new THREE.Mesh(trGeo, trMat); trunk.position.set(tx, 2, tz); trunk.castShadow = true;
-    scene.add(trunk); mapObjects.push(trunk);
+    trunk.userData = { isBuilding: true }; scene.add(trunk); mapObjects.push(trunk); coverObjects.push(trunk);
     const crGeo = new THREE.SphereGeometry(2.5 + Math.random(), 8, 6);
     const crMat = new THREE.MeshStandardMaterial({ color: 0xff88aa, roughness: 0.7, emissive: 0x220011, emissiveIntensity: 0.2 });
     const crown = new THREE.Mesh(crGeo, crMat); crown.position.set(tx, 5, tz);
-    scene.add(crown); mapObjects.push(crown);
+    crown.userData = { isBuilding: true }; scene.add(crown); mapObjects.push(crown); coverObjects.push(crown);
   });
   // Stone lanterns along main path
   for (let p = -40; p <= 40; p += 12) {
@@ -820,11 +820,11 @@ function generateMap_shrine() {
       if (Math.abs(lx) < 10 && Math.abs(lz - 3) < 10) return;
       const baseGeo = new THREE.CylinderGeometry(0.5, 0.7, 1, 6);
       const base = new THREE.Mesh(baseGeo, new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.6 }));
-      base.position.set(lx, 0.5, lz); scene.add(base); mapObjects.push(base);
+      base.position.set(lx, 0.5, lz); base.userData = { isBuilding: true }; scene.add(base); mapObjects.push(base); coverObjects.push(base);
       const topGeo = new THREE.BoxGeometry(1.2, 1, 1.2);
       const topMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.6, emissive: 0x332200, emissiveIntensity: 0.5 });
       const top = new THREE.Mesh(topGeo, topMat); top.position.set(lx, 1.5, lz);
-      scene.add(top); mapObjects.push(top);
+      top.userData = { isBuilding: true }; scene.add(top); mapObjects.push(top); coverObjects.push(top);
     });
   }
   // Pond south of pagoda
@@ -839,7 +839,7 @@ function generateMap_shrine() {
     const rMat = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.8 });
     const rock = new THREE.Mesh(rGeo, rMat);
     rock.position.set(Math.cos(angle) * 9, 0.5, -18 + Math.sin(angle) * 9);
-    rock.castShadow = true; scene.add(rock); mapObjects.push(rock);
+    rock.castShadow = true; rock.userData = { isBuilding: true }; scene.add(rock); mapObjects.push(rock); coverObjects.push(rock);
   }
   // Cover
   for (let z = -55; z <= 55; z += 14) {
@@ -906,23 +906,23 @@ function generateMap_datacore() {
   // Core crown
   const crGeo = new THREE.SphereGeometry(4, 16, 8);
   const crMat = new THREE.MeshStandardMaterial({ color: 0x00ff44, roughness: 0.2, metalness: 0.8, emissive: 0x003300, emissiveIntensity: 1.5 });
-  const core = new THREE.Mesh(crGeo, crMat); core.position.set(0, 30, 0);
-  scene.add(core); mapObjects.push(core);
+  const core = new THREE.Mesh(crGeo, crMat); core.position.set(0, 30, 0); core.userData = { isBuilding: true };
+  scene.add(core); mapObjects.push(core); coverObjects.push(core);
   // Ring around core
   const rGeo = new THREE.TorusGeometry(5, 0.3, 8, 24);
   const rMat = new THREE.MeshBasicMaterial({ color: 0x00ff44 });
-  const ring = new THREE.Mesh(rGeo, rMat); ring.position.set(0, 30, 0);
-  scene.add(ring); mapObjects.push(ring);
+  const ring = new THREE.Mesh(rGeo, rMat); ring.position.set(0, 30, 0); ring.userData = { isBuilding: true };
+  scene.add(ring); mapObjects.push(ring); coverObjects.push(ring);
   // Cooling towers at corners
   [[-50, -50], [50, -50], [-50, 50], [50, 50]].forEach(([cx, cz]) => {
     const ctGeo = new THREE.CylinderGeometry(3, 3.5, 14, 8);
     const ctMat = new THREE.MeshStandardMaterial({ color: 0x223344, roughness: 0.4, metalness: 0.7 });
-    const tower = new THREE.Mesh(ctGeo, ctMat); tower.position.set(cx, 7, cz); tower.castShadow = true;
-    scene.add(tower); mapObjects.push(tower);
+    const tower = new THREE.Mesh(ctGeo, ctMat); tower.position.set(cx, 7, cz); tower.castShadow = true; tower.userData = { isBuilding: true };
+    scene.add(tower); mapObjects.push(tower); coverObjects.push(tower);
     const fanGeo = new THREE.CylinderGeometry(3, 3, 0.5, 8);
     const fanMat = new THREE.MeshStandardMaterial({ color: 0x334455, roughness: 0.3, metalness: 0.8 });
-    const fan = new THREE.Mesh(fanGeo, fanMat); fan.position.set(cx, 14, cz);
-    scene.add(fan); mapObjects.push(fan);
+    const fan = new THREE.Mesh(fanGeo, fanMat); fan.position.set(cx, 14, cz); fan.userData = { isBuilding: true };
+    scene.add(fan); mapObjects.push(fan); coverObjects.push(fan);
   });
   // Data bridges
   _addBridge(-28, -20, 28, -20, 9, 1.5, 0x00ff44);
@@ -973,8 +973,8 @@ function generateMap_voiddeck() {
   // Antenna
   const antGeo = new THREE.CylinderGeometry(0.2, 0.3, 10, 6);
   const antMat = new THREE.MeshStandardMaterial({ color: 0x888899, roughness: 0.2, metalness: 0.9 });
-  const ant = new THREE.Mesh(antGeo, antMat); ant.position.set(0, 28, 0);
-  scene.add(ant); mapObjects.push(ant);
+  const ant = new THREE.Mesh(antGeo, antMat); ant.position.set(0, 28, 0); ant.userData = { isBuilding: true };
+  scene.add(ant); mapObjects.push(ant); coverObjects.push(ant);
   // Floating upper platform north
   const upGeo = new THREE.BoxGeometry(20, 1, 14);
   const upMat = new THREE.MeshStandardMaterial({ color: 0x2a2a4a, roughness: 0.3, metalness: 0.6, emissive: 0x000033, emissiveIntensity: 0.4 });
@@ -984,8 +984,8 @@ function generateMap_voiddeck() {
   for (let px = -8; px <= 8; px += 8) {
     const pGeo = new THREE.CylinderGeometry(1, 1, 5, 8);
     const pMat = new THREE.MeshStandardMaterial({ color: 0x444488, roughness: 0.3, metalness: 0.8 });
-    const pillar = new THREE.Mesh(pGeo, pMat); pillar.position.set(px, 2.5, -30); pillar.castShadow = true;
-    scene.add(pillar); mapObjects.push(pillar);
+    const pillar = new THREE.Mesh(pGeo, pMat); pillar.position.set(px, 2.5, -30); pillar.castShadow = true; pillar.userData = { isBuilding: true };
+    scene.add(pillar); mapObjects.push(pillar); coverObjects.push(pillar);
   }
   // Lower platform south
   const lpGeo = new THREE.BoxGeometry(16, 0.8, 12);
@@ -997,12 +997,12 @@ function generateMap_voiddeck() {
     const armGeo = new THREE.BoxGeometry(16, 0.5, 2);
     const armMat = new THREE.MeshStandardMaterial({ color: 0x444488, roughness: 0.3, metalness: 0.8 });
     const arm = new THREE.Mesh(armGeo, armMat);
-    arm.position.set(dx < 0 ? dx + 8 : dx - 8, 3, dz); arm.rotation.y = 0; arm.castShadow = true;
-    scene.add(arm); mapObjects.push(arm);
+    arm.position.set(dx < 0 ? dx + 8 : dx - 8, 3, dz); arm.rotation.y = 0; arm.castShadow = true; arm.userData = { isBuilding: true };
+    scene.add(arm); mapObjects.push(arm); coverObjects.push(arm);
     const padGeo = new THREE.CylinderGeometry(3, 3, 0.4, 12);
     const padMat = new THREE.MeshStandardMaterial({ color: 0x334455, roughness: 0.3, metalness: 0.7, emissive: 0x001122, emissiveIntensity: 0.8 });
-    const pad = new THREE.Mesh(padGeo, padMat); pad.position.set(dx, 2.8, dz); pad.receiveShadow = true;
-    scene.add(pad); mapObjects.push(pad);
+    const pad = new THREE.Mesh(padGeo, padMat); pad.position.set(dx, 2.8, dz); pad.receiveShadow = true; pad.userData = { isBuilding: true };
+    scene.add(pad); mapObjects.push(pad); coverObjects.push(pad);
   });
   // Sky bridges
   _addBridge(0, -25, 0, 25, 6, 2, 0x44ddff);
@@ -1298,8 +1298,8 @@ function createBot(team){
   const bot={
     pos:new THREE.Vector3(spawn.x+(Math.random()-0.5)*5,1.7,spawn.z+(Math.random()-0.5)*5),
     vel:new THREE.Vector3(),hp:cls.hp,maxHp:cls.hp,armor:cls.armor,speed:cls.speed*5,
-    team,alive:true,class:clsKey,weapon:['pistol','smg','rifle','shotgun','sniper'][Math.floor(Math.random()*5)],
-    target:null,state:'patrol',patrolTarget:null,lastShot:0,fireRate:500+Math.random()*500,
+    team,alive:true,class:clsKey,weapon:['smg','smg','smg','rifle','rifle','rifle','shotgun','shotgun','sniper','sniper','pistol'][Math.floor(Math.random()*11)],
+    target:null,state:'patrol',patrolTarget:null,lastShot:0,fireRate:280+Math.random()*200,
     abilityReady:true,abilityCD:cls.cd,stuckTimer:0,model:null,healthBar:null
   };
   const teamColor=team===0?0xff4466:0x4488ff;
@@ -1419,7 +1419,7 @@ function updateBots(dt){
 
       // SHOOT at target
       var now=performance.now();
-      var fireDelay=bot.fireRate*(bestDist>idealRange*1.5?1.6:1);
+      var fireDelay=bot.fireRate*(bestDist>idealRange*1.5?1.3:1);
       if(now-bot.lastShot>fireDelay&&bestDist<w.range){
         bot.lastShot=now;
         var sDir=dirToEnemy.clone();
@@ -1431,12 +1431,12 @@ function updateBots(dt){
         var hitDist=pHits.length>0?pHits[0].distance:w.range;
         if(bestDist<hitDist){
           if(bestEnemy==='player'){
-            damagePlayer(w.damage*(0.6+Math.random()*0.4));
+            damagePlayer(w.damage*(0.9+Math.random()*0.5));
           }else{
             // Damage other bot
             var otherBot=state.bots.find(function(b){return b.pos.distanceTo(bestPos)<1.5&&b.team!==bot.team;});
             if(otherBot&&otherBot.takeDamage){
-              otherBot.takeDamage(w.damage*(0.5+Math.random()*0.5),bot.pos);
+              otherBot.takeDamage(w.damage*(0.8+Math.random()*0.5),bot.pos);
             }
           }
         }
