@@ -532,7 +532,8 @@ const state={
   abilityReady:true,abilityCDLeft:0,classIndex:'assault',
   hp:100,maxHp:100,armor:30,speed:1.0,
   bots:[],bullets:[],particles:[],rainDrops:[],
-  matchStartTime:0,gameOver:false
+  matchStartTime:0,gameOver:false,
+  vy:0,groundY:1.7
 };
 
 // ============ THREE.JS SETUP ============
@@ -666,8 +667,8 @@ function _addBridge(x1, z1, x2, z2, y = 10, w = 2, color = 0x00ffff) {
 // ============ MAP: 废弃仓库 (WAREHOUSE) ============
 function generateMap_warehouse() {
   _setMapAtmosphere(
-    0x8b7355,0xaa9966,0.7,0xffcc66,0x553322,0.6,0xffdd88,2.5,70,
-    0x996644,0.00008);
+    0x8899aa,0xddccaa,1.0,0xffeedd,0x998866,0.8,0xffffcc,4.0,80,
+    0xccbbaa,0.00002);
   const S = 160, H = S / 2;
   _addMapGround(S, 0x1a1c1e);
   _addMapBoundary(S);
@@ -745,8 +746,8 @@ function generateMap_warehouse() {
 // ============ MAP: 千叶神社 (CYBER-SHRINE) ============
 function generateMap_shrine() {
   _setMapAtmosphere(
-    0x2a1040,0x442255,0.6,0x9944cc,0x221133,0.55,0xff77aa,2.0,55,
-    0x331144,0.0001);
+    0x7799cc,0xddccbb,1.0,0xffffff,0x99aa88,0.8,0xffffff,4.0,80,
+    0xaabbcc,0.00002);
   const S = 160, H = S / 2;
   _addMapGround(S, 0x1a1520);
   _addMapBoundary(S);
@@ -862,8 +863,8 @@ function generateMap_shrine() {
 // ============ MAP: 数据核心 (DATA CORE) ============
 function generateMap_datacore() {
   _setMapAtmosphere(
-    0x0a0a25,0x223366,0.55,0x3355aa,0x111133,0.5,0x44aaff,1.8,75,
-    0x0a0a25,0.00015);
+    0x5599bb,0xaabbcc,1.0,0xddeeff,0x556677,0.7,0xeeeeff,3.5,80,
+    0x8899aa,0.00004);
   const S = 160, H = S / 2;
   _addMapGround(S, 0x080808);
   _addMapBoundary(S);
@@ -948,8 +949,8 @@ function generateMap_datacore() {
 // ============ MAP: 虚空甲板 (VOID DECK) ============
 function generateMap_voiddeck() {
   _setMapAtmosphere(
-    0x0a0515,0x221144,0.5,0x334466,0x111111,0.45,0xccddff,1.6,85,
-    0x08051a,0.00005);
+    0x334466,0x556677,0.8,0x8899aa,0x333344,0.6,0xffffff,3.5,90,
+    0x334455,0.00001);
   const S = 180, H = S / 2;
   _addMapGround(S, 0x050515);
   _addMapBoundary(S);
@@ -1498,9 +1499,9 @@ function killPlayer(killer='ENEMY'){
 function respawnPlayer(){
   const cls=CLASSES[state.classIndex];
   state.hp=cls.hp;state.maxHp=cls.hp;state.armor=cls.armor;state.speed=cls.speed;
-  state.alive=true;state.reloading=false;
+  state.alive=true;state.reloading=false;state.vy=0;
   const sp=spawnPoints[Math.floor(Math.random()*spawnPoints.length)];
-  camera.position.set(sp.x,1.7,sp.z);
+  camera.position.set(sp.x,state.groundY,sp.z);
 }
 
 function addKillFeed(killer,victim){
@@ -2075,12 +2076,18 @@ function animate(){
       const posZ=camera.position.clone();posZ.z=newPos.z;
       if(!checkPlayerCollision(posZ))camera.position.z=newPos.z;
     }
-    camera.position.y=1.7;
-
-    // Jump
-    if(keys[' ']&&camera.position.y<=1.75)camera.position.y+=0.12;
-    if(camera.position.y>1.7)camera.position.y-=0.06;
-    if(camera.position.y<1.7)camera.position.y=1.7;
+    // Jump (velocity-based)
+    const groundY=state.groundY||1.7;
+    const gravity=18,jumpVel=7;
+    if(keys[' ']&&camera.position.y<=groundY+0.03&&state.vy<=0){
+      state.vy=jumpVel;
+    }
+    state.vy-=gravity*dt;
+    camera.position.y+=state.vy*dt;
+    if(camera.position.y<groundY){
+      camera.position.y=groundY;
+      state.vy=0;
+    }
 
     // Weapon bob
     if(moveDir.length()>0){
@@ -2102,7 +2109,7 @@ function animate(){
 function initGame(){
   generateMap();
   state.kills=0;state.deaths=0;state.teamScore=[0,0];
-  state.team=0;state.gameOver=false;
+  state.team=0;state.gameOver=false;state.vy=0;
   state.bots.forEach(b=>scene.remove(b.model));state.bots.length=0;
   state.particles.forEach(p=>scene.remove(p));state.particles.length=0;
 
@@ -2142,7 +2149,7 @@ console.log('%c NEON STRIKE %c// 霓虹突击 ',
   'color:#00ffff;');
 console.log('%c5v5 Team Deathmatch | 30 Kills to Win | 20s Match Start',
   'color:#8888aa;');
-console.log('%cWASD Move | Mouse Aim | 1-6 Weapons/Equip | R Reload | Q Skill | Shift Sprint | Daytime',
+console.log('%cWASD Move | Mouse Aim | 1-6 Weapons/Equip | R Reload | Q Skill | Shift Sprint | Space Jump',
   'color:#666;');
 
 
