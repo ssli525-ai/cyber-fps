@@ -203,6 +203,23 @@ canvas{display:block;}
 #comment-input::placeholder{color:#444;}
 #comment-sent{display:none;color:#44cc44;font-size:0.75em;}
 #comment-sent.active{display:block;}
+/* Parkour HUD */
+#parkour-hud{position:fixed;top:20px;left:50%;transform:translateX(-50%);display:none;z-index:12;pointer-events:none;text-align:center;}
+#parkour-hud.active{display:block;}
+#parkour-timer{font-size:3em;color:#fff;font-weight:900;text-shadow:0 0 20px rgba(136,68,255,0.8);font-family:"Segoe UI","PingFang SC",monospace;letter-spacing:2px;}
+#parkour-best-label{color:#888;font-size:0.7em;margin-top:4px;}
+#parkour-best-time{color:#ffcc00;font-size:0.9em;font-weight:700;}
+#parkour-instructions{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.5);font-size:0.7em;z-index:12;pointer-events:none;display:none;text-align:center;}
+#parkour-instructions.active{display:block;}
+#parkour-complete{position:fixed;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;z-index:250;background:rgba(0,0,0,0.85);flex-direction:column;}
+#parkour-complete.active{display:flex;}
+#parkour-complete .pk-title{font-size:2.5em;font-weight:900;margin-bottom:10px;}
+#parkour-complete .pk-title.record{color:#ffcc00;text-shadow:0 0 30px rgba(255,204,0,0.6);}
+#parkour-complete .pk-title.norecord{color:#8844ff;text-shadow:0 0 20px rgba(136,68,255,0.5);}
+#parkour-complete .pk-time{font-size:3em;color:#fff;font-weight:700;}
+#parkour-complete .pk-best{color:#ffcc00;font-size:1em;margin-top:8px;}
+#parkour-complete .pk-hint{color:#666;font-size:0.75em;margin-top:20px;}
+
 </style>
 
 </head>
@@ -213,6 +230,7 @@ canvas{display:block;}
     <div class="lobby-title">STRIKE ZONE<span>STRIKE ZONE</span></div>
     <div class="lobby-section"><h3>游戏模式</h3><div id="mode-list"></div></div>
     <div id="player-stats">
+    <div id="parkour-best" style="display:none;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);"><div style="color:#aaa;font-size:0.72em;margin-bottom:4px;">跑酷最佳</div><div id="parkour-best-time" style="color:#ff6b35;font-size:1.1em;font-weight:700;">--</div></div>
       <div class="stat-item"><div class="stat-val" id="stat-kills">0</div>总击杀</div>
       <div class="stat-item"><div class="stat-val" id="stat-wins">0</div>胜场</div>
       <div class="stat-item"><div class="stat-val" id="stat-played">0</div>场次</div>
@@ -304,7 +322,8 @@ canvas{display:block;}
 const GAME_MODES=[
   {id:'tdm',name:'团队竞技',desc:'5v5 · 30击杀胜利',icon:'⚔️'},
   {id:'ffa',name:'个人混战',desc:'即将推出',icon:'💀',locked:true},
-  {id:'ctf',name:'夺旗模式',desc:'即将推出',icon:'🚩',locked:true}
+  {id:'ctf',name:'夺旗模式',desc:'即将推出',icon:'🚩',locked:true},
+  {id:'parkour',name:'霓虹跑酷',desc:'限时跑酷 · 挑战纪录',icon:'🏃'}
 ];
 const MAPS=[
   {id:'warehouse',name:'废弃仓库',theme:'工业废墟 · 集装箱战区',icon:'🏭'},
@@ -338,14 +357,14 @@ const LOBBY_CLASSES={
   sniper:{name:'狙击手'},
   netrunner:{name:'网络行者'}
 };
-const lobbyState={mode:'tdm',map:'warehouse',primary:'rifle',secondary:'pistol',melee:'knife',equipment:null,classIndex:'assault'};
+const lobbyState={mode:'tdm',map:'warehouse',primary:'rifle',secondary:'pistol',melee:'knife',equipment:null,classIndex:'assault',parkourMap:'neon_tower'};
 
 function loadPlayerStats(){try{return JSON.parse(localStorage.getItem('neon_strike_stats'))||{kills:0,wins:0,played:0};}catch(e){return{kills:0,wins:0,played:0};}}
 function savePlayerStats(s){localStorage.setItem('neon_strike_stats',JSON.stringify(s));}
 
 function renderLobby(){
   renderModeList();renderMapCards();renderWeaponSelects();renderClassSelect();
-  updatePlayerStats();renderMessageWall();
+  updatePlayerStats();renderMessageWall();renderParkourBest();
 }
 function renderModeList(){
   var c=document.getElementById('mode-list');c.innerHTML='';
@@ -398,6 +417,18 @@ function renderClassSelect(){
     b.onclick=function(){lobbyState.classIndex=k;renderClassSelect();};
     c.appendChild(b);
   });
+}
+function renderParkourBest(){
+  var best=loadParkourBest();
+  var el=document.getElementById('parkour-best');
+  var timeEl=document.getElementById('parkour-best-time');
+  if(el) el.style.display=lobbyState.mode==='parkour'?'block':'none';
+  if(timeEl && best.time > 0) {
+    var s=Math.floor(best.time), ms=Math.floor((best.time-s)*100);
+    timeEl.textContent = s + '.' + String(ms).padStart(2,'0') + ' 秒';
+  } else if(timeEl) {
+    timeEl.textContent = '--';
+  }
 }
 function updatePlayerStats(){
   var s=loadPlayerStats();
@@ -534,7 +565,8 @@ const state={
   bots:[],bullets:[],particles:[],rainDrops:[],
   matchStartTime:0,gameOver:false,
   vy:0,groundY:1.7,
-  mouseHeld:false
+  mouseHeld:false,
+  parkourMode:false,parkourStarted:false,parkourTimer:0,parkourFinished:false,parkourBest:0
 };
 
 // ============ THREE.JS SETUP ============
@@ -1043,6 +1075,190 @@ function generateMap_voiddeck() {
   createRainSystem();
 }
 
+// ============ MAP: NEON PARKOUR ============
+function generateMap_parkour() {
+  // Atmosphere: deep neon purple/blue
+  _setMapAtmosphere(0x0a0a1a, 0x332244, 0.7, 0x223355, 0x111122, 1.0, 0x6644ff, 2.5, 40, 0x110022, 0.001);
+
+  // Ground: glowing grid
+  const groundGeo = new THREE.PlaneGeometry(200, 200);
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x0a0a20, roughness: 0.6, metalness: 0.3, emissive: 0x000022, emissiveIntensity: 0.4 });
+  const ground = new THREE.Mesh(groundGeo, groundMat); ground.rotation.x = -Math.PI / 2; ground.position.y = -0.1;
+  ground.receiveShadow = true; ground.userData = { isBuilding: true };
+  scene.add(ground); mapObjects.push(ground); coverObjects.push(ground);
+
+  // Grid lines on ground
+  for (let i = -90; i <= 90; i += 10) {
+    const hGeo = new THREE.BoxGeometry(190, 0.02, 0.1);
+    const hMat = new THREE.MeshBasicMaterial({ color: 0x333366 });
+    const h = new THREE.Mesh(hGeo, hMat); h.position.set(0, 0.01, i); h.userData = { isBuilding: true };
+    scene.add(h); mapObjects.push(h); coverObjects.push(h);
+    const vGeo = new THREE.BoxGeometry(0.1, 0.02, 190);
+    const vMat = new THREE.MeshBasicMaterial({ color: 0x333366 });
+    const v = new THREE.Mesh(vGeo, vMat); v.position.set(i, 0.01, 0); v.userData = { isBuilding: true };
+    scene.add(v); mapObjects.push(v); coverObjects.push(v);
+  }
+
+  // ===== START PLATFORM =====
+  const startGeo = new THREE.BoxGeometry(8, 0.3, 8);
+  const startMat = new THREE.MeshStandardMaterial({ color: 0x00ff44, roughness: 0.2, metalness: 0.9, emissive: 0x00ff44, emissiveIntensity: 0.8 });
+  const startPlat = new THREE.Mesh(startGeo, startMat); startPlat.position.set(0, 0.15, 0);
+  startPlat.castShadow = true; startPlat.receiveShadow = true; startPlat.userData = { isBuilding: true, isParkourStart: true };
+  scene.add(startPlat); mapObjects.push(startPlat); coverObjects.push(startPlat);
+  // Glow ring around start
+  const srGeo = new THREE.TorusGeometry(4.5, 0.15, 8, 24);
+  const srMat = new THREE.MeshBasicMaterial({ color: 0x00ff44 });
+  const sr = new THREE.Mesh(srGeo, srMat); sr.rotation.x = -Math.PI / 2; sr.position.y = 0.35;
+  scene.add(sr); mapObjects.push(sr);
+
+  // ===== PARKOUR COURSE =====
+  // Section 1: Ramp up (y: 0 -> y: 4)
+  const rampGeo = new THREE.BoxGeometry(6, 0.3, 12);
+  const rampMat = new THREE.MeshStandardMaterial({ color: 0x5533aa, roughness: 0.3, metalness: 0.8, emissive: 0x221166, emissiveIntensity: 0.6 });
+  const ramp = new THREE.Mesh(rampGeo, rampMat); ramp.position.set(0, 0.5, 12); ramp.rotation.x = -0.5;
+  ramp.castShadow = true; ramp.receiveShadow = true; ramp.userData = { isBuilding: true };
+  scene.add(ramp); mapObjects.push(ramp); coverObjects.push(ramp);
+
+  // Section 2: Stepping stones (y: 4 -> y: 14, z: 18 -> z: 50)
+  const stepMat = new THREE.MeshStandardMaterial({ color: 0x6644cc, roughness: 0.2, metalness: 0.9, emissive: 0x331188, emissiveIntensity: 0.6 });
+  const steps = [
+    {x:0, y:4.5, z:24, w:3, h:0.3, d:3},
+    {x:3, y:6.5, z:30, w:2.5, h:0.3, d:2.5},
+    {x:-3, y:8.5, z:36, w:2.5, h:0.3, d:2.5},
+    {x:0, y:10.5, z:42, w:3, h:0.3, d:3},
+    {x:5, y:12.5, z:48, w:2, h:0.3, d:2},
+    {x:-4, y:14.5, z:50, w:3, h:0.3, d:3}
+  ];
+  steps.forEach(s => {
+    const sg = new THREE.BoxGeometry(s.w, s.h, s.d);
+    const sm = new THREE.Mesh(sg, stepMat); sm.position.set(s.x, s.y, s.z);
+    sm.castShadow = true; sm.receiveShadow = true; sm.userData = { isBuilding: true };
+    scene.add(sm); mapObjects.push(sm); coverObjects.push(sm);
+  });
+
+  // Section 3: Wall climb (y: 15 -> y: 25, z: 50 -> z: 70)
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x7744dd, roughness: 0.2, metalness: 0.8, emissive: 0x4411aa, emissiveIntensity: 0.5 });
+  // Low wall
+  const w1Geo = new THREE.BoxGeometry(10, 2, 0.5);
+  const w1 = new THREE.Mesh(w1Geo, wallMat); w1.position.set(0, 16, 52);
+  w1.castShadow = true; w1.receiveShadow = true; w1.userData = { isBuilding: true };
+  scene.add(w1); mapObjects.push(w1); coverObjects.push(w1);
+  // Mid wall
+  const w2Geo = new THREE.BoxGeometry(10, 2.5, 0.5);
+  const w2 = new THREE.Mesh(w2Geo, wallMat); w2.position.set(0, 19.5, 58);
+  w2.castShadow = true; w2.receiveShadow = true; w2.userData = { isBuilding: true };
+  scene.add(w2); mapObjects.push(w2); coverObjects.push(w2);
+  // High wall
+  const w3Geo = new THREE.BoxGeometry(10, 3, 0.5);
+  const w3 = new THREE.Mesh(w3Geo, wallMat); w3.position.set(0, 23, 64);
+  w3.castShadow = true; w3.receiveShadow = true; w3.userData = { isBuilding: true };
+  scene.add(w3); mapObjects.push(w3); coverObjects.push(w3);
+  // Landing platforms after each wall
+  const plMat = new THREE.MeshStandardMaterial({ color: 0x8855ee, roughness: 0.2, metalness: 0.7, emissive: 0x5522bb, emissiveIntensity: 0.5 });
+  [{y:15,z:53,w:8},{y:18.5,z:59,w:7},{y:22,z:65,w:6}].forEach(p => {
+    const pg = new THREE.BoxGeometry(p.w, 0.3, 2);
+    const pm = new THREE.Mesh(pg, plMat); pm.position.set(0, p.y, p.z);
+    pm.castShadow = true; pm.receiveShadow = true; pm.userData = { isBuilding: true };
+    scene.add(pm); mapObjects.push(pm); coverObjects.push(pm);
+  });
+
+  // Section 4: Narrow beam (y: 25 -> y: 27, z: 68 -> z: 78)
+  const beamGeo = new THREE.BoxGeometry(1, 0.3, 10);
+  const beamMat = new THREE.MeshStandardMaterial({ color: 0x9944ff, roughness: 0.1, metalness: 0.9, emissive: 0x6611cc, emissiveIntensity: 0.8 });
+  const beam = new THREE.Mesh(beamGeo, beamMat); beam.position.set(0, 25.8, 73);
+  beam.castShadow = true; beam.receiveShadow = true; beam.userData = { isBuilding: true };
+  scene.add(beam); mapObjects.push(beam); coverObjects.push(beam);
+
+  // Section 5: Zigzag stairs (y: 27 -> y: 40, z: 78 -> z: 90, x: -8 -> 8)
+  const zigMat = new THREE.MeshStandardMaterial({ color: 0xaa55ff, roughness: 0.2, metalness: 0.8, emissive: 0x7722dd, emissiveIntensity: 0.7 });
+  const zigzags = [
+    {x:-4, y:27.5, z:80, w:4, h:0.3, d:2},
+    {x:4, y:29.5, z:83, w:4, h:0.3, d:2},
+    {x:-4, y:31.5, z:86, w:3.5, h:0.3, d:2},
+    {x:6, y:33.5, z:89, w:3, h:0.3, d:2},
+    {x:-3, y:35.5, z:92, w:3.5, h:0.3, d:2},
+    {x:5, y:37.5, z:95, w:3, h:0.3, d:2},
+    {x:0, y:39.5, z:98, w:5, h:0.3, d:3}
+  ];
+  zigzags.forEach(z => {
+    const zg = new THREE.BoxGeometry(z.w, z.h, z.d);
+    const zm = new THREE.Mesh(zg, zigMat); zm.position.set(z.x, z.y, z.z);
+    zm.castShadow = true; zm.receiveShadow = true; zm.userData = { isBuilding: true };
+    scene.add(zm); mapObjects.push(zm); coverObjects.push(zm);
+  });
+
+  // Section 6: Final climb platforms (y: 40 -> y: 65, z: 100 -> z: 120)
+  const finalMat = new THREE.MeshStandardMaterial({ color: 0xbb66ff, roughness: 0.15, metalness: 0.9, emissive: 0x8833ee, emissiveIntensity: 0.7 });
+  const finals = [
+    {x:0, y:41, z:102, r:3},
+    {x:3, y:44, z:106, r:2.5},
+    {x:-2, y:47, z:110, r:2.5},
+    {x:0, y:50, z:114, r:3},
+    {x:4, y:53, z:118, r:2},
+    {x:-3, y:56, z:122, r:2.5},
+    {x:1, y:59, z:126, r:3},
+    {x:-2, y:62, z:130, r:2.5}
+  ];
+  finals.forEach(f => {
+    const fg = new THREE.CylinderGeometry(f.r, f.r, 0.35, 16);
+    const fm = new THREE.Mesh(fg, finalMat); fm.position.set(f.x, f.y, f.z);
+    fm.castShadow = true; fm.receiveShadow = true; fm.userData = { isBuilding: true };
+    scene.add(fm); mapObjects.push(fm); coverObjects.push(fm);
+  });
+
+  // ===== FINISH PLATFORM =====
+  const finishGeo = new THREE.BoxGeometry(10, 0.4, 10);
+  const finishMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.1, metalness: 0.9, emissive: 0xffcc00, emissiveIntensity: 1.2 });
+  const finishPlat = new THREE.Mesh(finishGeo, finishMat); finishPlat.position.set(0, 65.5, 132);
+  finishPlat.castShadow = true; finishPlat.receiveShadow = true; finishPlat.userData = { isBuilding: true, isParkourFinish: true };
+  scene.add(finishPlat); mapObjects.push(finishPlat); coverObjects.push(finishPlat);
+  // Glow ring around finish
+  const frGeo = new THREE.TorusGeometry(5.5, 0.2, 8, 32);
+  const frMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
+  const fr = new THREE.Mesh(frGeo, frMat); fr.rotation.x = -Math.PI / 2; fr.position.y = 65.8;
+  scene.add(fr); mapObjects.push(fr);
+
+  // ===== DECORATIVE PILLARS & NEON =====
+  const pillarMat = new THREE.MeshStandardMaterial({ color: 0x221144, roughness: 0.3, metalness: 0.8, emissive: 0x110033, emissiveIntensity: 0.5 });
+  [-20, 20].forEach(sideX => {
+    const pGeo = new THREE.BoxGeometry(1, 70, 1);
+    const p = new THREE.Mesh(pGeo, pillarMat); p.position.set(sideX, 35, 60);
+    p.castShadow = true; p.userData = { isBuilding: true };
+    scene.add(p); mapObjects.push(p); coverObjects.push(p);
+  });
+
+  // Neon rings at height intervals
+  for (let y = 10; y <= 60; y += 10) {
+    const ng = new THREE.TorusGeometry(15, 0.08, 6, 32);
+    const nm = new THREE.MeshBasicMaterial({ color: y === 60 ? 0xffcc00 : 0x8844ff });
+    const ring = new THREE.Mesh(ng, nm); ring.position.set(0, y, 65); ring.rotation.x = Math.PI / 2;
+    scene.add(ring); mapObjects.push(ring);
+  }
+
+  // ===== AMBIENT PARTICLES (upward floating) =====
+  const partCount = 500;
+  const partGeo = new THREE.BufferGeometry();
+  const partPos = new Float32Array(partCount * 3);
+  for (let i = 0; i < partCount; i++) {
+    partPos[i * 3] = (Math.random() - 0.5) * 100;
+    partPos[i * 3 + 1] = Math.random() * 70;
+    partPos[i * 3 + 2] = (Math.random() - 0.5) * 100;
+  }
+  partGeo.setAttribute("position", new THREE.BufferAttribute(partPos, 3));
+  const partMat = new THREE.PointsMaterial({ color: 0x6644ff, size: 0.15, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending });
+  const parts = new THREE.Points(partGeo, partMat);
+  scene.add(parts); mapObjects.push(parts);
+  state.parkourParticles = { obj: parts, positions: partPos, count: partCount };
+
+  // Signs
+  createNeonSign("RUN", -35, 3, 10, 4, 1.2, 0x00ff44);
+  createNeonSign("PARKOUR", 35, 3, 10, 7, 1.2, 0x8844ff);
+  createNeonSign("FINISH", 0, 68, 135, 6, 1.5, 0xffcc00);
+
+  // Spawn point: player starts at the start platform
+  spawnPoints.push({ x: 0, z: 0, team: 0 });
+}
+
 // ============ PER-MAP ATMOSPHERE ============
 function _setMapAtmosphere(skyColor, ambientColor, ambientIntensity, hemiSky, hemiGround, hemiIntensity, sunColor, sunIntensity, sunY, fogColor, fogDensity){
   scene.background=new THREE.Color(skyColor);
@@ -1063,6 +1279,7 @@ function generateMap(){
     case 'shrine': generateMap_shrine(); break;
     case 'datacore': generateMap_datacore(); break;
     case 'voiddeck': generateMap_voiddeck(); break;
+    case 'parkour': generateMap_parkour(); break;
     default: generateMap_warehouse();
   }
 }
@@ -1654,9 +1871,11 @@ document.addEventListener('keydown',e=>{
   }
   keys[e.key.toLowerCase()]=true;
   if(e.key==='Enter'){e.preventDefault();openChat();return;}
+  if(e.key==='Escape'&&state.parkourMode){returnFromParkour();return;}
   if(e.key==='Escape')togglePause();
   if(e.key>='1'&&e.key<='6')switchWeapon(parseInt(e.key)-1);
   if(e.key.toLowerCase()==='q')useAbility();
+  if(e.key.toLowerCase()==='r'&&state.parkourMode){if(state.parkourFinished)resetParkour();return;}
   if(e.key.toLowerCase()==='r'&&!state.reloading)startReload();
 });
 document.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
@@ -2061,6 +2280,39 @@ function animate(){
   state.gameTime+=dt;
   hudUpdateTimer+=dt;
 
+  // Parkour mode logic
+  if(state.parkourMode && state.alive && !state.parkourFinished) {
+    var px = camera.position.x, py = camera.position.y, pz = camera.position.z;
+    // Start detection: near start platform (0, 0.3, 0) radius 4
+    if(!state.parkourStarted && Math.abs(px) < 4 && Math.abs(pz) < 4 && py < 1.5) {
+      state.parkourStarted = true;
+      state.parkourTimer = 0;
+      document.getElementById("parkour-instructions").classList.remove("active");
+    }
+    // Finish detection: near finish platform (0, 65.5, 132) radius 5
+    if(state.parkourStarted) {
+      state.parkourTimer += dt;
+      document.getElementById("parkour-timer").textContent = formatTime(state.parkourTimer);
+      var dx = px - 0, dy = py - 65.5, dz = pz - 132;
+      if(Math.sqrt(dx*dx + dy*dy + dz*dz) < 5) {
+        finishParkour();
+      }
+    }
+    // Update parkour particles
+    if(state.parkourParticles) {
+      var pp = state.parkourParticles;
+      var posArr = pp.positions;
+      for(var i = 0; i < pp.count; i++) {
+        posArr[i*3+1] += dt * 3;
+        if(posArr[i*3+1] > 70) posArr[i*3+1] = 0;
+      }
+      pp.obj.geometry.attributes.position.needsUpdate = true;
+    }
+    // Skip FPS logic below
+    renderer.render(scene, camera);
+    return;
+  }
+
   updateRain(dt);
   updateParticles(dt);
   updateGrenades(dt);
@@ -2122,9 +2374,9 @@ function animate(){
     }
   }
 
-  updateBots(dt);
+  if(!state.parkourMode) updateBots(dt);
 
-  if(hudUpdateTimer>0.1){
+  if(hudUpdateTimer>0.1 && !state.parkourMode){
     updateWeaponBar();updateHUD();drawMinimap();hudUpdateTimer=0;
   }
 
@@ -2146,20 +2398,154 @@ function initGame(){
   state.hp=cls.hp;state.maxHp=cls.hp;state.armor=cls.armor;state.speed=cls.speed;
   state.alive=true;
 
-  // Create 9 bots (4 teammates, 5 enemies for 5v5 with player)
-  // Player is team 0 (RED)
-  // 4 friendly bots on team 0
-  for(let i=0;i<4;i++)createBot(0);
-  // 5 enemy bots on team 1
-  for(let i=0;i<5;i++)createBot(1);
+  // Create bots only in non-parkour modes
+  if(!state.parkourMode) {
+    for(let i=0;i<4;i++)createBot(0);
+    for(let i=0;i<5;i++)createBot(1);
+  }
 
-  createWeaponModel(WEAPONS[state.playerLoadout[state.weaponIdx]].color);
-  Object.values(WEAPONS).forEach(w=>{w._mag=w.mag;w._reserve=w.reserve;});
+  if(!state.parkourMode) {
+    createWeaponModel(WEAPONS[state.playerLoadout[state.weaponIdx]].color);
+    Object.values(WEAPONS).forEach(w=>{w._mag=w.mag;w._reserve=w.reserve;});
+  }
 
   document.getElementById('score-red').textContent='0';
   document.getElementById('score-blue').textContent='0';
-  updateWeaponBar();updateHUD();
+  if(!state.parkourMode) { updateWeaponBar();updateHUD(); }
 }
+
+
+// ============ PARKOUR MODE LOGIC ============
+const PARKOUR_BEST_KEY="neon_strike_parkour_best";
+function loadParkourBest() {
+  try { return JSON.parse(localStorage.getItem(PARKOUR_BEST_KEY)) || { time: 0, date: "" }; }
+  catch(e) { return { time: 0, date: "" }; }
+}
+function saveParkourBest(time) {
+  var now = new Date();
+  var date = String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0") + " " + String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0");
+  localStorage.setItem(PARKOUR_BEST_KEY, JSON.stringify({ time: time, date: date }));
+}
+
+function startParkourMode() {
+  state.parkourMode = true;
+  state.parkourStarted = false;
+  state.parkourTimer = 0;
+  state.parkourFinished = false;
+  state.alive = true;
+  state.gameStarted = true;
+  state.paused = false;
+  state.groundY = 0.3;  // Start platform is at y=0.3
+
+  var best = loadParkourBest();
+  state.parkourBest = best.time || 0;
+
+  // Hide regular HUD, show parkour HUD
+  document.getElementById("hud").style.display = "none";
+  document.getElementById("weapon-bar").style.display = "none";
+  document.getElementById("minimap").style.display = "none";
+  document.getElementById("crosshair").style.display = "none";
+  document.getElementById("score-red").parentElement.style.display = "none";
+  document.getElementById("score-blue").parentElement.style.display = "none";
+  document.getElementById("blocker").style.display = "none";
+  document.getElementById("chat-container").style.display = "none";
+  document.getElementById("chat-hint").style.display = "none";
+
+  document.getElementById("parkour-hud").classList.add("active");
+  document.getElementById("parkour-instructions").classList.add("active");
+  document.getElementById("parkour-complete").classList.remove("active");
+
+  // Show best time
+  var bestEl = document.getElementById("parkour-best-time");
+  bestEl.textContent = state.parkourBest > 0 ? formatTime(state.parkourBest) : "--";
+
+  // Position player at start
+  camera.position.set(0, 1.7, 0);
+  state.vy = 0;
+
+  // Lock pointer
+  setTimeout(function() { renderer.domElement.requestPointerLock(); }, 100);
+}
+
+function formatTime(seconds) {
+  var s = Math.floor(seconds);
+  var ms = Math.floor((seconds - s) * 100);
+  return s + "." + String(ms).padStart(2, "0");
+}
+
+function finishParkour() {
+  state.parkourFinished = true;
+  var t = state.parkourTimer;
+  var isRecord = state.parkourBest === 0 || t < state.parkourBest;
+
+  if (isRecord) {
+    saveParkourBest(t);
+    state.parkourBest = t;
+  }
+
+  var complete = document.getElementById("parkour-complete");
+  complete.classList.add("active");
+  var title = complete.querySelector(".pk-title");
+  title.textContent = isRecord ? "新纪录!" : "完成!";
+  title.className = "pk-title " + (isRecord ? "record" : "norecord");
+  complete.querySelector(".pk-time").textContent = formatTime(t) + " 秒";
+  complete.querySelector(".pk-best").textContent = isRecord
+    ? "恭喜创造新纪录!"
+    : "最佳成绩: " + formatTime(state.parkourBest) + " 秒";
+
+  // Unlock pointer
+  document.exitPointerLock();
+}
+
+function resetParkour() {
+  state.parkourStarted = false;
+  state.parkourTimer = 0;
+  state.parkourFinished = false;
+
+  camera.position.set(0, 1.7, 0);
+  state.vy = 0;
+
+  document.getElementById("parkour-timer").textContent = "0.00";
+  document.getElementById("parkour-complete").classList.remove("active");
+  document.getElementById("parkour-hud").classList.add("active");
+
+  var bestEl = document.getElementById("parkour-best-time");
+  bestEl.textContent = state.parkourBest > 0 ? formatTime(state.parkourBest) : "--";
+
+  setTimeout(function() { renderer.domElement.requestPointerLock(); }, 100);
+}
+
+function returnFromParkour() {
+  state.parkourMode = false;
+  state.parkourStarted = false;
+  state.parkourFinished = false;
+  state.gameStarted = false;
+
+  // Restore HUD
+  document.getElementById("hud").style.display = "";
+  document.getElementById("weapon-bar").style.display = "";
+  document.getElementById("minimap").style.display = "";
+  document.getElementById("crosshair").style.display = "";
+  document.getElementById("chat-container").style.display = "";
+  document.getElementById("chat-hint").style.display = "";
+
+  document.getElementById("parkour-hud").classList.remove("active");
+  document.getElementById("parkour-instructions").classList.remove("active");
+  document.getElementById("parkour-complete").classList.remove("active");
+  document.exitPointerLock();
+
+  document.getElementById("score-red").parentElement.style.display = "";
+  document.getElementById("score-blue").parentElement.style.display = "";
+
+  // Clear map
+  state.bots.forEach(function(b){scene.remove(b.model)}); state.bots.length = 0;
+  state.particles.forEach(function(p){scene.remove(p)}); state.particles.length = 0;
+  mapObjects.forEach(function(o){scene.remove(o)}); mapObjects.length = 0;
+  coverObjects.length = 0; spawnPoints.length = 0;
+  document.getElementById("lobby").classList.remove("hidden");
+  if(window._renderLobby) window._renderLobby();
+}
+
 
 animate();
 
@@ -2185,14 +2571,27 @@ window._doStartGame=function(){
   window._lobbyStartRequested=false;
   var ls=window._lobbyState||{};
   initAudio();
-  state.classIndex=ls.classIndex||'assault';
-  state.team=0;
-  var primaryWeapon=ls.primary||'rifle';
-  state.playerLoadout=[primaryWeapon,'pistol','knife','frag','flash','smoke'];
-  state.weaponIdx=0;
-  state.equipment={frag:1,flash:1,smoke:1};
-  initGame();
-  document.getElementById('blocker').style.display='flex';
+  if(ls.mode==='parkour'){
+    state.parkourMode=true;
+    state.classIndex='assault';
+    state.team=0;
+    state.playerLoadout=['rifle','pistol','knife'];
+    state.weaponIdx=0;
+    state.equipment={frag:0,flash:0,smoke:0};
+    lobbyState.map='parkour';
+    initGame();
+    startParkourMode();
+  }else{
+    state.parkourMode=false;
+    state.classIndex=ls.classIndex||'assault';
+    state.team=0;
+    var primaryWeapon=ls.primary||'rifle';
+    state.playerLoadout=[primaryWeapon,'pistol','knife','frag','flash','smoke'];
+    state.weaponIdx=0;
+    state.equipment={frag:1,flash:1,smoke:1};
+    initGame();
+    document.getElementById('blocker').style.display='flex';
+  }
 };
 
 window._doReturnToLobby=function(){
@@ -2223,5 +2622,9 @@ function addPlayerStats(k,w){
   savePlayerStats(s);updatePlayerStats();
 }
 </script>
+<div id="parkour-hud"><div id="parkour-timer">0.00</div><div id="parkour-best-label">最佳成绩</div><div id="parkour-best-time">--</div></div>
+<div id="parkour-instructions">触碰绿色起点开始计时 | R键重置 | Esc返回大厅</div>
+<div id="parkour-complete"><div class="pk-title"></div><div class="pk-time"></div><div class="pk-best"></div><div class="pk-hint">按 R 重试 · 按 Esc 返回大厅</div></div>
+
 </body>
 </html>
